@@ -1,42 +1,42 @@
 const { v4: uuidv4 } = require('uuid');
-const { load, save } = require('./persist');
+const { db } = require('../firebase');
 
-const FILE = 'banners.json';
-const banners = load(FILE);
+const collection = db.collection('banners');
 
-function getAllBanners() {
-  return Array.from(banners.values());
+async function getAllBanners() {
+  const snapshot = await collection.get();
+  return snapshot.docs.map(doc => doc.data());
 }
 
-function getBannerById(id) {
-  return banners.get(id);
+async function getBannerById(id) {
+  const doc = await collection.doc(id).get();
+  return doc.exists ? doc.data() : undefined;
 }
 
-function createBanner({ url, riveFile }) {
+async function createBanner({ url, riveFile }) {
   const banner = {
     id: uuidv4(),
     url,
     riveFile,
     createdAt: new Date().toISOString(),
   };
-  banners.set(banner.id, banner);
-  save(FILE, banners);
+  await collection.doc(banner.id).set(banner);
   return banner;
 }
 
-function updateBanner(id, { url, riveFile }) {
-  const existing = banners.get(id);
-  if (!existing) return null;
-  const updated = { ...existing, url, riveFile };
-  banners.set(id, updated);
-  save(FILE, banners);
+async function updateBanner(id, { url, riveFile }) {
+  const doc = await collection.doc(id).get();
+  if (!doc.exists) return null;
+  const updated = { ...doc.data(), url, riveFile };
+  await collection.doc(id).set(updated);
   return updated;
 }
 
-function deleteBanner(id) {
-  const result = banners.delete(id);
-  save(FILE, banners);
-  return result;
+async function deleteBanner(id) {
+  const doc = await collection.doc(id).get();
+  if (!doc.exists) return false;
+  await collection.doc(id).delete();
+  return true;
 }
 
 module.exports = { getAllBanners, getBannerById, createBanner, updateBanner, deleteBanner };

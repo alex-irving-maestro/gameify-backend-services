@@ -1,42 +1,42 @@
 const { v4: uuidv4 } = require('uuid');
-const { load, save } = require('./persist');
+const { db } = require('../firebase');
 
-const FILE = 'wrappers.json';
-const wrappers = load(FILE);
+const collection = db.collection('wrappers');
 
-function getAllWrappers() {
-  return Array.from(wrappers.values());
+async function getAllWrappers() {
+  const snapshot = await collection.get();
+  return snapshot.docs.map(doc => doc.data());
 }
 
-function getWrapperById(id) {
-  return wrappers.get(id);
+async function getWrapperById(id) {
+  const doc = await collection.doc(id).get();
+  return doc.exists ? doc.data() : undefined;
 }
 
-function createWrapper({ url, riveFile }) {
+async function createWrapper({ url, riveFile }) {
   const wrapper = {
     id: uuidv4(),
     url,
     riveFile,
     createdAt: new Date().toISOString(),
   };
-  wrappers.set(wrapper.id, wrapper);
-  save(FILE, wrappers);
+  await collection.doc(wrapper.id).set(wrapper);
   return wrapper;
 }
 
-function updateWrapper(id, { url, riveFile }) {
-  const existing = wrappers.get(id);
-  if (!existing) return null;
-  const updated = { ...existing, url, riveFile };
-  wrappers.set(id, updated);
-  save(FILE, wrappers);
+async function updateWrapper(id, { url, riveFile }) {
+  const doc = await collection.doc(id).get();
+  if (!doc.exists) return null;
+  const updated = { ...doc.data(), url, riveFile };
+  await collection.doc(id).set(updated);
   return updated;
 }
 
-function deleteWrapper(id) {
-  const result = wrappers.delete(id);
-  save(FILE, wrappers);
-  return result;
+async function deleteWrapper(id) {
+  const doc = await collection.doc(id).get();
+  if (!doc.exists) return false;
+  await collection.doc(id).delete();
+  return true;
 }
 
 module.exports = { getAllWrappers, getWrapperById, createWrapper, updateWrapper, deleteWrapper };

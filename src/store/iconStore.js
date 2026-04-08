@@ -1,42 +1,42 @@
 const { v4: uuidv4 } = require('uuid');
-const { load, save } = require('./persist');
+const { db } = require('../firebase');
 
-const FILE = 'icons.json';
-const icons = load(FILE);
+const collection = db.collection('icons');
 
-function getAllIcons() {
-  return Array.from(icons.values());
+async function getAllIcons() {
+  const snapshot = await collection.get();
+  return snapshot.docs.map(doc => doc.data());
 }
 
-function getIconById(id) {
-  return icons.get(id);
+async function getIconById(id) {
+  const doc = await collection.doc(id).get();
+  return doc.exists ? doc.data() : undefined;
 }
 
-function createIcon({ url, riveFile }) {
+async function createIcon({ url, riveFile }) {
   const icon = {
     id: uuidv4(),
     url,
     riveFile,
     createdAt: new Date().toISOString(),
   };
-  icons.set(icon.id, icon);
-  save(FILE, icons);
+  await collection.doc(icon.id).set(icon);
   return icon;
 }
 
-function updateIcon(id, { url, riveFile }) {
-  const existing = icons.get(id);
-  if (!existing) return null;
-  const updated = { ...existing, url, riveFile };
-  icons.set(id, updated);
-  save(FILE, icons);
+async function updateIcon(id, { url, riveFile }) {
+  const doc = await collection.doc(id).get();
+  if (!doc.exists) return null;
+  const updated = { ...doc.data(), url, riveFile };
+  await collection.doc(id).set(updated);
   return updated;
 }
 
-function deleteIcon(id) {
-  const result = icons.delete(id);
-  save(FILE, icons);
-  return result;
+async function deleteIcon(id) {
+  const doc = await collection.doc(id).get();
+  if (!doc.exists) return false;
+  await collection.doc(id).delete();
+  return true;
 }
 
 module.exports = { getAllIcons, getIconById, createIcon, updateIcon, deleteIcon };

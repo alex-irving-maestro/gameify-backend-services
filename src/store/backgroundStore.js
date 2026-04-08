@@ -1,42 +1,42 @@
 const { v4: uuidv4 } = require('uuid');
-const { load, save } = require('./persist');
+const { db } = require('../firebase');
 
-const FILE = 'backgrounds.json';
-const backgrounds = load(FILE);
+const collection = db.collection('backgrounds');
 
-function getAllBackgrounds() {
-  return Array.from(backgrounds.values());
+async function getAllBackgrounds() {
+  const snapshot = await collection.get();
+  return snapshot.docs.map(doc => doc.data());
 }
 
-function getBackgroundById(id) {
-  return backgrounds.get(id);
+async function getBackgroundById(id) {
+  const doc = await collection.doc(id).get();
+  return doc.exists ? doc.data() : undefined;
 }
 
-function createBackground({ url, riveFile }) {
+async function createBackground({ url, riveFile }) {
   const background = {
     id: uuidv4(),
     url,
     riveFile,
     createdAt: new Date().toISOString(),
   };
-  backgrounds.set(background.id, background);
-  save(FILE, backgrounds);
+  await collection.doc(background.id).set(background);
   return background;
 }
 
-function updateBackground(id, { url, riveFile }) {
-  const existing = backgrounds.get(id);
-  if (!existing) return null;
-  const updated = { ...existing, url, riveFile };
-  backgrounds.set(id, updated);
-  save(FILE, backgrounds);
+async function updateBackground(id, { url, riveFile }) {
+  const doc = await collection.doc(id).get();
+  if (!doc.exists) return null;
+  const updated = { ...doc.data(), url, riveFile };
+  await collection.doc(id).set(updated);
   return updated;
 }
 
-function deleteBackground(id) {
-  const result = backgrounds.delete(id);
-  save(FILE, backgrounds);
-  return result;
+async function deleteBackground(id) {
+  const doc = await collection.doc(id).get();
+  if (!doc.exists) return false;
+  await collection.doc(id).delete();
+  return true;
 }
 
 module.exports = { getAllBackgrounds, getBackgroundById, createBackground, updateBackground, deleteBackground };
